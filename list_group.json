@@ -1,0 +1,40 @@
+/api/v1/visit-sales-outlet/group-salesman-list?search
+
+{
+  "success": true,
+  "message": "Data group salesman berhasil diambil",
+  "data": [
+    {
+      "id": "5vxE6SeHX1atoiCN5JkO5g",
+      "name": "Tim Digital",
+      "salesmans": [
+        {
+          "id": "T5qUeRBPpydmNLbj8_ZOgA",
+          "name": "Laili Sales 3",
+          "count": 1,
+          "progress": 0
+        },
+        {
+          "id": "yaNwzeYf34FIfFCaLc0D4Q",
+          "name": "Laili Sales Update Test",
+          "count": 1,
+          "progress": 0
+        },
+        {
+          "id": "HXSBUA5fghOmQMyw18USvg",
+          "name": "Mulyadi",
+          "count": 1,
+          "progress": 0
+        },
+        {
+          "id": "wLwx3UrlyyFFGh3s8S8Tfg",
+          "name": "Laili Sales 2",
+          "count": 1,
+          "progress": 0
+        }
+      ],
+      "count": 1
+    }
+  ],
+  "request_id": "c9634384-2512-4114-9e6b-b01b952e7583"
+}
