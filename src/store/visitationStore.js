@@ -12,7 +12,7 @@ const useVisitationStore = create((set, get) => ({
   fetchGroups: async (search = '') => {
     set({ isLoadingGroups: true, error: null });
     try {
-      const response = await api.get('/api/v1/visit-sales-outlet/group-salesman-list', {
+      const response = await api.get('/visit-sales-outlet/group-salesman-list', {
         params: { search },
       });
       const groups = response.data?.data || [];
@@ -23,11 +23,14 @@ const useVisitationStore = create((set, get) => ({
     }
   },
 
-  fetchOutlets: async (salesmanId) => {
+  fetchOutlets: async (salesmanId, groupSalesmanId) => {
     set({ isLoadingOutlets: true, error: null, selectedSalesmanId: salesmanId });
     try {
       const response = await api.get('/visit-sales-outlet/list', {
-        params: { salesman_id: salesmanId },
+        params: {
+          salesman_id: salesmanId,
+          group_salesman_id: groupSalesmanId || '',
+        },
       });
       const outletData = response.data?.data?.data || [];
       set({ outlets: outletData, isLoadingOutlets: false });
@@ -37,12 +40,12 @@ const useVisitationStore = create((set, get) => ({
     }
   },
 
-  selectSalesman: (salesmanId) => {
+  selectSalesman: (salesmanId, groupSalesmanId) => {
     const current = get().selectedSalesmanId;
     if (current === salesmanId) {
       set({ selectedSalesmanId: null, outlets: [] });
     } else {
-      get().fetchOutlets(salesmanId);
+      get().fetchOutlets(salesmanId, groupSalesmanId);
     }
   },
 

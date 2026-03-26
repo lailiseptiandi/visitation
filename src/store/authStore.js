@@ -4,28 +4,29 @@ import api from '../lib/api';
 
 const useAuthStore = create((set) => ({
   user: JSON.parse(localStorage.getItem('user') || 'null'),
-  token: localStorage.getItem('token') || null,
+  accessToken: localStorage.getItem('access_token') || null,
   isLoading: false,
   error: null,
-
 
   login: async (username, password) => {
     set({ isLoading: true, error: null });
     try {
       const response = await api.post('/auth/login', { username, password });
-      const { token, data } = response.data;
+      const resData = response.data;
 
-      const authToken = token || response.data?.accessToken || response.data?.access_token;
-      const userData = data || response.data?.user || response.data;
+      const accessToken = resData?.data?.access_token;
+      const refreshToken = resData?.data?.refresh_token;
+      const userData = resData?.data?.super_account || resData?.data;
 
-      if (authToken) {
-        localStorage.setItem('token', authToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-        set({ user: userData, token: authToken, isLoading: false });
-      } else {
-        localStorage.setItem('user', JSON.stringify(userData));
-        set({ user: userData, token: 'authenticated', isLoading: false });
+      if (!accessToken) {
+        set({ error: 'Login gagal: token tidak ditemukan dalam response.', isLoading: false });
+        return false;
       }
+
+      localStorage.setItem('access_token', accessToken);
+      if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      set({ user: userData, accessToken, isLoading: false });
 
       return true;
     } catch (error) {
@@ -36,9 +37,10 @@ const useAuthStore = create((set) => ({
   },
 
   logout: () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
     localStorage.removeItem('user');
-    set({ user: null, token: null });
+    set({ user: null, accessToken: null });
   },
 
   clearError: () => set({ error: null }),

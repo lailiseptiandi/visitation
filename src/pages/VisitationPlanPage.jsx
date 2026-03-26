@@ -137,7 +137,7 @@ export default function VisitationPlanPage() {
                       {(group.salesmans || []).map((sm) => (
                         <button
                           key={sm.id}
-                          onClick={() => selectSalesman(sm.id)}
+                          onClick={() => selectSalesman(sm.id, group.id)}
                           className={`w-full flex items-center gap-3 px-4 py-2 text-sm hover:bg-gray-50 transition-colors ${
                             selectedSalesmanId === sm.id ? 'bg-blue-50 border-l-2 border-primary' : ''
                           }`}

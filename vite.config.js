@@ -11,16 +11,6 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
-      '/login': {
-        target: 'https://ct-devsaas-apigateway.service-aha.id',
-        changeOrigin: true,
-        secure: false,
-      },
-      '/visit-sales-outlet': {
-        target: 'https://ct-devsaas-apigateway.service-aha.id',
-        changeOrigin: true,
-        secure: false,
-      },
     },
   },
 })
