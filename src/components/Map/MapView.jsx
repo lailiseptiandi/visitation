@@ -11,22 +11,70 @@ const statusColorMap = {
 };
 
 const statusLabel = {
-  'active': 'Aktif',
+  'active': 'Sudah Dikunjungi',
   'visiting': 'Sedang Dikunjungi',
   'on-the-way': 'Dalam Perjalanan',
-  'inactive': 'Tidak Aktif',
+  'inactive': 'Belum Dikunjungi',
 };
 
-function createMarkerIcon(color) {
-  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(`
-    <svg xmlns="http://www.w3.org/2000/svg" width="28" height="36" viewBox="0 0 28 36">
-      <path d="M14 0C6.268 0 0 6.268 0 14c0 10.5 14 22 14 22s14-11.5 14-22C28 6.268 21.732 0 14 0z" fill="${color}"/>
-      <circle cx="14" cy="14" r="6" fill="white"/>
+function createNumberedMarkerIcon(color, number) {
+  const fontSize = number >= 10 ? '11' : '13';
+  const svg = `
+    <svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+      <circle cx="16" cy="16" r="14" fill="${color}" stroke="white" stroke-width="2.5"/>
+      <text x="16" y="20.5" text-anchor="middle" font-size="${fontSize}" font-weight="700" fill="white" font-family="Inter, Arial, sans-serif">${number}</text>
     </svg>
-  `)}`;
+  `;
+  return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
-export default function MapView({ outlets = [], isLoading = false }) {
+function buildPopupContent(outlet, number, color) {
+  const segLabel = outlet.segmentation_label || '-';
+  const freqLabel = outlet.visit_frequency_label || '-';
+  const status = statusLabel[outlet.status] || outlet.status || '-';
+  const lastVisit = outlet.last_visit_date
+    ? new Date(outlet.last_visit_date).toLocaleDateString('id-ID', { day: '2-digit', month: 'short', year: 'numeric' })
+    : 'Belum pernah';
+  const daysSince = outlet.days_since_last_visit != null ? `${outlet.days_since_last_visit} hari lalu` : '-';
+  const visitDuration = outlet.visit_duration ? `${outlet.visit_duration} menit` : null;
+
+  const rows = [
+    ['Segmentasi', segLabel],
+    ['Jadwal Kunjungan', freqLabel],
+    visitDuration ? ['Durasi Kunjungan', visitDuration] : null,
+    ['Kunjungan Terakhir', lastVisit],
+    ['Sejak Kunjungan', daysSince],
+    ['Status', `<span style="color:${color};font-weight:600;">${status}</span>`],
+    ['Dikunjungi oleh', outlet.salesman_name || '-'],
+  ].filter(Boolean);
+
+  const rowsHtml = rows
+    .map(
+      ([label, value]) => `
+      <div style="display:contents;">
+        <span style="color:#9CA3AF;white-space:nowrap;">${label}</span>
+        <span style="color:#374151;font-weight:500;">${value}</span>
+      </div>`
+    )
+    .join('');
+
+  return `
+    <div style="min-width:240px;font-family:Inter,sans-serif;padding:2px 0;">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+        <div style="width:24px;height:24px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0;">
+          <span style="color:white;font-size:11px;font-weight:700;">${number}</span>
+        </div>
+        <div style="font-size:14px;font-weight:700;color:#111827;">${outlet.outlet_name || ''}</div>
+      </div>
+      <div style="font-size:12px;color:#6B7280;margin-bottom:10px;padding-left:32px;">${outlet.address || ''}</div>
+      <div style="display:grid;grid-template-columns:auto 1fr;gap:6px 12px;font-size:12px;padding-left:8px;">
+        ${rowsHtml}
+      </div>
+    </div>
+  `;
+}
+
+export default function MapView({ outlets = [], isLoading = false, route = null }) {
   const mapContainerRef = useRef(null);
   const mapRef = useRef(null);
   const markersRef = useRef([]);
@@ -68,53 +116,51 @@ export default function MapView({ outlets = [], isLoading = false }) {
 
       if (outlets.length === 0) return;
 
+      // Sort outlets by route order if route is available
+      let orderedOutlets = [...outlets];
+      if (route?.route?.length > 0) {
+        const orderMap = {};
+        route.route.forEach((r) => {
+          orderMap[r.outlet_name] = r.order;
+        });
+        const inRoute = orderedOutlets
+          .filter((o) => orderMap[o.outlet_name] !== undefined)
+          .sort((a, b) => orderMap[a.outlet_name] - orderMap[b.outlet_name]);
+        const outOfRoute = orderedOutlets.filter((o) => orderMap[o.outlet_name] === undefined);
+        orderedOutlets = [...inRoute, ...outOfRoute];
+      }
+
       const bounds = [];
 
-      outlets.forEach((outlet) => {
+      orderedOutlets.forEach((outlet, idx) => {
         const lat = outlet.latitude;
         const lng = outlet.longitude;
         if (!lat || !lng) return;
 
         const color = statusColorMap[outlet.status] || statusColorMap.default;
+        const number = idx + 1;
+
         const icon = L.icon({
-          iconUrl: createMarkerIcon(color),
-          iconSize: [28, 36],
-          iconAnchor: [14, 36],
-          popupAnchor: [0, -36],
+          iconUrl: createNumberedMarkerIcon(color, number),
+          iconSize: [32, 32],
+          iconAnchor: [16, 16],
+          popupAnchor: [0, -18],
         });
 
         const marker = L.marker([lat, lng], { icon }).addTo(map);
         markersRef.current.push(marker);
         bounds.push([lat, lng]);
 
-        const freqLabel = outlet.visit_frequency_label || '-';
-        const segLabel = outlet.segmentation_label || '-';
-        const lastVisit = outlet.last_visit_date || 'Belum pernah';
-        const daysOverdue = outlet.days_since_last_visit || 0;
-
-        marker.bindPopup(`
-          <div style="min-width: 220px; font-family: Inter, sans-serif;">
-            <h3 style="font-size: 14px; font-weight: 600; margin: 0 0 8px 0; color: #111827;">${outlet.outlet_name || ''}</h3>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">📍 ${outlet.address || ''}</div>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">🏷️ ${segLabel}</div>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">📅 Frekuensi: ${freqLabel}</div>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">👤 SM: ${outlet.salesman_name || '-'}</div>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 4px;">🕐 Kunjungan terakhir: ${lastVisit}</div>
-            <div style="font-size: 12px; color: #6B7280; margin-bottom: 8px;">⏳ ${daysOverdue} hari sejak kunjungan terakhir</div>
-            <div style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 20px; background: ${color}20; font-size: 11px; font-weight: 500; color: ${color};">
-              <span style="width: 8px; height: 8px; border-radius: 50%; background: ${color};"></span>
-              ${statusLabel[outlet.status] || outlet.status || 'Unknown'}
-            </div>
-          </div>
-        `);
+        marker.bindPopup(buildPopupContent(outlet, number, color), { maxWidth: 280 });
       });
 
+      // Draw route polyline connecting outlets in order
       if (bounds.length > 1) {
         const polyline = L.polyline(bounds, {
           color: '#1D4ED8',
-          weight: 2,
-          opacity: 0.6,
-          dashArray: '8, 8',
+          weight: 2.5,
+          opacity: 0.7,
+          dashArray: '8, 6',
         }).addTo(map);
         markersRef.current.push(polyline);
       }
@@ -125,7 +171,7 @@ export default function MapView({ outlets = [], isLoading = false }) {
     }
 
     updateMarkers();
-  }, [outlets]);
+  }, [outlets, route]);
 
   return (
     <div className="relative w-full h-full" style={{ minHeight: '400px' }}>

@@ -5,12 +5,15 @@ import {
   LogOut,
   Menu,
   X,
-  ChevronDown,
+  Navigation,
+  ClipboardList,
 } from 'lucide-react';
 import useAuthStore from '../store/authStore';
 
 const navigation = [
   { name: 'Visitation Plan', href: '/visitation-plan', icon: MapPin },
+  { name: 'Update Lokasi', href: '/update-location', icon: Navigation },
+  { name: 'Test Visit API', href: '/visit-test', icon: ClipboardList },
 ];
 
 export default function DashboardLayout() {
