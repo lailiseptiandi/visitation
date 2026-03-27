@@ -21,6 +21,24 @@ const statusBadge = {
   inactive:   { label: 'Belum Dikunjungi', cls: 'bg-gray-100 text-gray-600' },
 };
 
+const defaultOutletStatusPriority = ['visiting', 'on-the-way', 'inactive', 'active'];
+
+function getOutletId(outlet) {
+  return outlet?.outlet_id ?? outlet?.id ?? null;
+}
+
+function getDefaultOutlet(outletList) {
+  if (!Array.isArray(outletList) || outletList.length === 0) {
+    return null;
+  }
+
+  const prioritizedOutlet = defaultOutletStatusPriority
+    .map((status) => outletList.find((outlet) => outlet.status === status))
+    .find(Boolean);
+
+  return prioritizedOutlet || outletList[0];
+}
+
 function JsonBlock({ value }) {
   return (
     <pre className="bg-gray-900 text-green-400 text-xs rounded-lg p-3 overflow-auto max-h-52 whitespace-pre-wrap break-all">
@@ -101,7 +119,9 @@ export default function VisitTestPage() {
       const res = await api.get('/visit-sales-outlet/list', {
         params: { salesman_id: sm.id, group_salesman_id: groupId },
       });
-      setOutlets(res.data?.data?.data || []);
+      const nextOutlets = res.data?.data?.data || [];
+      setOutlets(nextOutlets);
+      setSelectedOutlet(getDefaultOutlet(nextOutlets));
     } finally {
       setLoadingOutlets(false);
     }
@@ -115,7 +135,7 @@ export default function VisitTestPage() {
     try {
       const res = await api.post('/visit-sales-outlet/visit/checkin', {
         salesman_id: selectedSalesman.id,
-        outlet_id: selectedOutlet.id,
+        outlet_id: getOutletId(selectedOutlet),
         latitude: selectedOutlet.latitude,
         longitude: selectedOutlet.longitude,
         visit_note: visitNote,
@@ -244,6 +264,11 @@ export default function VisitTestPage() {
               <div className="flex items-center gap-2 px-4 py-3 border-b border-gray-100 bg-gray-50">
                 <Store size={15} className="text-blue-600" />
                 <span className="text-sm font-semibold text-gray-800">Pilih Outlet</span>
+                {!loadingOutlets && selectedOutlet && (
+                  <span className="ml-auto text-[11px] font-medium text-blue-600 bg-blue-100 px-2 py-0.5 rounded-full">
+                    auto terpilih
+                  </span>
+                )}
                 {loadingOutlets && <Loader2 size={13} className="animate-spin text-gray-400 ml-auto" />}
               </div>
               <div className="max-h-72 overflow-y-auto divide-y divide-gray-50">
@@ -258,10 +283,10 @@ export default function VisitTestPage() {
                     const badge = statusBadge[outlet.status] || statusBadge.inactive;
                     return (
                       <button
-                        key={outlet.id}
+                        key={getOutletId(outlet) || `${outlet.outlet_name}-${outlet.salesman_id}`}
                         onClick={() => { setSelectedOutlet(outlet); setCheckinResult(null); setCheckoutResult(null); }}
                         className={`w-full flex items-start gap-3 px-4 py-2.5 text-left hover:bg-blue-50 transition-colors ${
-                          selectedOutlet?.id === outlet.id ? 'bg-blue-50 border-l-2 border-blue-500' : ''
+                          getOutletId(selectedOutlet) === getOutletId(outlet) ? 'bg-blue-50 border-l-2 border-blue-500' : ''
                         }`}
                       >
                         <MapPin size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
@@ -330,7 +355,7 @@ export default function VisitTestPage() {
                 <div>
                   <label className="block text-xs font-medium text-gray-500 mb-1">outlet_id</label>
                   <div className="px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs font-mono text-gray-600 truncate">
-                    {selectedOutlet?.id || <span className="text-gray-400 italic">belum dipilih</span>}
+                    {getOutletId(selectedOutlet) || <span className="text-gray-400 italic">belum dipilih</span>}
                   </div>
                 </div>
                 <div>
@@ -486,8 +511,8 @@ export default function VisitTestPage() {
             <div className="bg-white rounded-xl border border-dashed border-gray-300 flex items-center justify-center py-16 text-center">
               <div>
                 <ClipboardList size={32} className="text-gray-300 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">Pilih salesman dan outlet di sebelah kiri</p>
-                <p className="text-xs text-gray-400 mt-1">Form checkin &amp; checkout akan muncul di sini</p>
+                <p className="text-sm text-gray-500">Pilih salesman di sebelah kiri</p>
+                <p className="text-xs text-gray-400 mt-1">Outlet akan dipilih otomatis jika data tersedia</p>
               </div>
             </div>
           )}
