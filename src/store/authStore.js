@@ -36,6 +36,40 @@ const useAuthStore = create((set) => ({
     }
   },
 
+  loginMobile: async (username, password, imei) => {
+    set({ isLoading: true, error: null });
+    try {
+      const response = await api.post('/mb/auth/login', { username, password, imei });
+      const resData = response.data;
+
+      const accessToken = resData?.data?.access_token;
+      const refreshToken = resData?.data?.refresh_token;
+      // Try multiple fallback paths for user/salesman data
+      const userData =
+        resData?.data?.salesman ||
+        resData?.data?.user ||
+        resData?.data?.super_account ||
+        resData?.data;
+
+      if (!accessToken) {
+        set({ error: 'Login gagal: token tidak ditemukan dalam response.', isLoading: false });
+        return false;
+      }
+
+      localStorage.setItem('access_token', accessToken);
+      if (refreshToken) localStorage.setItem('refresh_token', refreshToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+      set({ user: userData, accessToken, isLoading: false });
+
+      return true;
+    } catch (error) {
+      const message =
+        error.response?.data?.message || 'Login gagal. Periksa username dan password.';
+      set({ error: message, isLoading: false });
+      return false;
+    }
+  },
+
   logout: () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
