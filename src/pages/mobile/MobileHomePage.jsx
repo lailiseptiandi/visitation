@@ -589,11 +589,14 @@ export default function MobileHomePage() {
     successMessage,
     clearMessages,
     fetchOutletIndex,
+    updateLocation,
   } = useMobileVisitStore();
 
   const [selectedOutlet, setSelectedOutlet] = useState(null);
   const [filterStatus, setFilterStatus] = useState('all');
   const [searchTerm, setSearchTerm] = useState('');
+  const [locUpdating, setLocUpdating] = useState(false);
+  const [locFeedback, setLocFeedback] = useState(null);
 
   const salesmanId = user?.salesman_id || user?.id || '';
   const firstName = (user?.name || user?.full_name || user?.username || 'Sales').split(' ')[0];
@@ -615,6 +618,43 @@ export default function MobileHomePage() {
       return () => clearTimeout(t);
     }
   }, [successMessage]);
+
+  useEffect(() => {
+    if (locFeedback) {
+      const t = setTimeout(() => setLocFeedback(null), 3000);
+      return () => clearTimeout(t);
+    }
+  }, [locFeedback]);
+
+  const handleUpdateLocation = async () => {
+    if (!salesmanId) {
+      setLocFeedback({ success: false, message: 'Salesman tidak dikenali' });
+      return;
+    }
+    setLocUpdating(true);
+    setLocFeedback(null);
+    const { lat, lng, accuracy } = await getPosition();
+    if (lat == null || lng == null) {
+      setLocUpdating(false);
+      setLocFeedback({
+        success: false,
+        message: 'Gagal mendapatkan lokasi. Pastikan izin lokasi diberikan.',
+      });
+      return;
+    }
+    const res = await updateLocation({
+      salesmanId,
+      latitude: parseFloat(lat.toFixed(6)),
+      longitude: parseFloat(lng.toFixed(6)),
+      accuracy: accuracy != null ? parseFloat(accuracy.toFixed(1)) : null,
+    });
+    setLocUpdating(false);
+    setLocFeedback(
+      res?.success
+        ? { success: true, message: 'Lokasi berhasil diperbarui' }
+        : { success: false, message: res?.message || 'Gagal update lokasi' }
+    );
+  };
 
   const filteredOutlets = outlets.filter((o) => {
     const matchSearch =
@@ -639,13 +679,29 @@ export default function MobileHomePage() {
             <p className="text-blue-200 text-xs">Halo, Selamat bekerja 👋</p>
             <h1 className="text-white text-lg font-bold leading-tight">{firstName}</h1>
           </div>
-          <button
-            onClick={() => fetchOutletIndex()}
-            disabled={isLoadingOutlets}
-            className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:bg-white/30 transition-colors"
-          >
-            <RefreshCw size={16} className={isLoadingOutlets ? 'animate-spin' : ''} />
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleUpdateLocation}
+              disabled={locUpdating}
+              title="Update Lokasi Saat Ini"
+              className="h-9 px-3 rounded-xl bg-white/10 flex items-center gap-1.5 text-white text-xs font-semibold hover:bg-white/20 active:bg-white/30 transition-colors disabled:opacity-60"
+            >
+              {locUpdating ? (
+                <Loader2 size={14} className="animate-spin" />
+              ) : (
+                <Navigation size={14} />
+              )}
+              {locUpdating ? 'Mengirim...' : 'Update Lokasi'}
+            </button>
+            <button
+              onClick={() => fetchOutletIndex()}
+              disabled={isLoadingOutlets}
+              title="Muat Ulang"
+              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white hover:bg-white/20 active:bg-white/30 transition-colors"
+            >
+              <RefreshCw size={16} className={isLoadingOutlets ? 'animate-spin' : ''} />
+            </button>
+          </div>
         </div>
         <p className="text-blue-200 text-xs mt-0.5">{todayStr}</p>
 
@@ -690,6 +746,23 @@ export default function MobileHomePage() {
         <div className="mx-4 mt-3 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-xl">
           <CheckCircle2 size={15} className="flex-shrink-0" />
           {successMessage}
+        </div>
+      )}
+      {locFeedback && (
+        <div
+          className={`mx-4 mt-3 flex items-center gap-2 text-sm px-4 py-3 rounded-xl border ${
+            locFeedback.success
+              ? 'bg-green-50 border-green-200 text-green-700'
+              : 'bg-red-50 border-red-200 text-red-700'
+          }`}
+        >
+          {locFeedback.success ? (
+            <CheckCircle2 size={15} className="flex-shrink-0" />
+          ) : (
+            <AlertCircle size={15} className="flex-shrink-0" />
+          )}
+          <span className="flex-1">{locFeedback.message}</span>
+          <button onClick={() => setLocFeedback(null)}><X size={14} /></button>
         </div>
       )}
 

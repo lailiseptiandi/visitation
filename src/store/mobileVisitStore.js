@@ -238,8 +238,12 @@ const useMobileVisitStore = create((set, get) => ({
         longitude,
         ...(accuracy !== null ? { accuracy } : {}),
       });
-    } catch {
-      // silently fail for background location updates
+      return { success: true };
+    } catch (error) {
+      return {
+        success: false,
+        message: error.response?.data?.message || 'Gagal update lokasi',
+      };
     }
   },
 }));
